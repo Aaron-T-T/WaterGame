@@ -1,123 +1,137 @@
-// -------------------------------
-// GAME STATE
-// -------------------------------
 let gameRunning = false;
 let dropMaker;
 let score = 0;
 let pollution = 0;
 let timeLeft = 30;
 
-// DOM elements
+let difficulty = "normal";
+
 const scoreDisplay = document.getElementById("score");
 const pollutionBar = document.getElementById("pollution-fill");
 const timeDisplay = document.getElementById("time");
 const gameContainer = document.getElementById("game-container");
+const modal = document.getElementById("game-over-modal");
+const finalScoreDisplay = document.getElementById("final-score");
 
-// -------------------------------
-// START GAME
-// -------------------------------
+// Difficulty settings
+const difficultySettings = {
+    easy: {
+        spawnRate: 1500,
+        time: 40,
+        pollutionPenalty: 5,
+        scoreReward: 5,
+        dropSpeed: "5s"
+    },
+    normal: {
+        spawnRate: 1000,
+        time: 30,
+        pollutionPenalty: 10,
+        scoreReward: 5,
+        dropSpeed: "4s"
+    },
+    hard: {
+        spawnRate: 700,
+        time: 20,
+        pollutionPenalty: 20,
+        scoreReward: 10,
+        dropSpeed: "3s"
+    }
+};
+
+// Difficulty selection
+document.querySelectorAll(".difficulty-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+        difficulty = btn.dataset.mode;
+    });
+});
+
+// Start game
 document.getElementById("start-btn").addEventListener("click", startGame);
 
 function startGame() {
-  if (gameRunning) return;
+    if (gameRunning) return;
 
-  gameRunning = true;
-  score = 0;
-  pollution = 0;
-  timeLeft = 30;
+    const settings = difficultySettings[difficulty];
 
-  scoreDisplay.textContent = score;
-  pollutionBar.style.width = "0%";
-  timeDisplay.textContent = timeLeft;
+    gameRunning = true;
+    score = 0;
+    pollution = 0;
+    timeLeft = settings.time;
 
-  // Spawn drops every second
-  dropMaker = setInterval(createDrop, 1000);
-
-  // Countdown timer
-  const timer = setInterval(() => {
-    timeLeft--;
+    scoreDisplay.textContent = score;
+    pollutionBar.style.width = "0%";
     timeDisplay.textContent = timeLeft;
 
-    if (timeLeft <= 0) {
-      endGame();
-      clearInterval(timer);
-    }
-  }, 1000);
+    dropMaker = setInterval(createDrop, settings.spawnRate);
+
+    const timer = setInterval(() => {
+        timeLeft--;
+        timeDisplay.textContent = timeLeft;
+
+        if (timeLeft <= 0) {
+            endGame();
+            clearInterval(timer);
+        }
+    }, 1000);
 }
 
-// -------------------------------
-// CREATE DROP
-// -------------------------------
 function createDrop() {
-  const drop = document.createElement("div");
+    const settings = difficultySettings[difficulty];
+    const drop = document.createElement("div");
 
-  // 70% chance good drop, 30% bad drop
-  const isBad = Math.random() < 0.3;
-  drop.className = isBad ? "water-drop bad-drop" : "water-drop good-drop";
+    const isBad = Math.random() < 0.3;
+    drop.className = isBad ? "water-drop bad-drop" : "water-drop good-drop";
 
-  // Size variety
-  const size = 40 + Math.random() * 40;
-  drop.style.width = drop.style.height = `${size}px`;
+    const size = 40 + Math.random() * 40;
+    drop.style.width = drop.style.height = `${size}px`;
 
-  // Random X position
-  const gameWidth = gameContainer.offsetWidth;
-  drop.style.left = Math.random() * (gameWidth - size) + "px";
+    const gameWidth = gameContainer.offsetWidth;
+    drop.style.left = Math.random() * (gameWidth - size) + "px";
 
-  // Fall speed
-  drop.style.animationDuration = "4s";
+    drop.style.animationDuration = settings.dropSpeed;
 
-  // Add to screen
-  gameContainer.appendChild(drop);
+    gameContainer.appendChild(drop);
 
-  // CLICK INTERACTION
-  drop.addEventListener("click", () => {
-    if (!gameRunning) return;
+    drop.addEventListener("click", () => {
+        if (!gameRunning) return;
 
-    if (isBad) {
-      pollution += 10;
-      pollutionBar.style.width = pollution + "%";
-      drop.style.backgroundColor = "#F5402C"; // charity: water red
-    } else {
-      score += 5;
-      scoreDisplay.textContent = score;
+        if (isBad) {
+            pollution += settings.pollutionPenalty;
+            pollutionBar.style.width = pollution + "%";
+            drop.style.backgroundColor = "#F5402C";
+        } else {
+            score += settings.scoreReward;
+            scoreDisplay.textContent = score;
+            drop.style.backgroundColor = "#FFC907";
+            drop.style.transform = "scale(1.3)";
+        }
 
-      // Visual feedback
-      drop.style.backgroundColor = "#FFC907"; // charity: water yellow
-      drop.style.transform = "scale(1.3)";
-    }
+        setTimeout(() => drop.remove(), 150);
 
-    // Remove after click
-    setTimeout(() => drop.remove(), 150);
+        if (pollution >= 100) endGame();
+    });
 
-    // Lose condition
-    if (pollution >= 100) {
-      endGame();
-    }
-  });
+    drop.addEventListener("animationend", () => {
+        if (isBad) {
+            pollution += settings.pollutionPenalty;
+            pollutionBar.style.width = pollution + "%";
+        }
+        drop.remove();
 
-  // If drop reaches bottom without being clicked
-  drop.addEventListener("animationend", () => {
-    if (isBad) {
-      pollution += 10;
-      pollutionBar.style.width = pollution + "%";
-    }
-    drop.remove();
-
-    if (pollution >= 100) {
-      endGame();
-    }
-  });
+        if (pollution >= 100) endGame();
+    });
 }
 
-// -------------------------------
-// END GAME
-// -------------------------------
 function endGame() {
-  gameRunning = false;
-  clearInterval(dropMaker);
+    gameRunning = false;
+    clearInterval(dropMaker);
 
-  alert(`Game Over! Your score: ${score}`);
+    finalScoreDisplay.textContent = score;
+    modal.classList.remove("hidden");
 
-  // Clear remaining drops
-  document.querySelectorAll(".water-drop").forEach(d => d.remove());
+    document.querySelectorAll(".water-drop").forEach(d => d.remove());
 }
+
+document.getElementById("restart-btn").addEventListener("click", () => {
+    modal.classList.add("hidden");
+});
